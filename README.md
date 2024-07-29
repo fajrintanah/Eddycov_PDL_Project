@@ -1,2 +1,10 @@
 # Eddycov_PDL_Project
-Development of the eddy covariance data post-processing 
+## BPDPKS Research Grant for Faperta IPB University 
+
+Research Entitled: 
+
+UJI MULTILOKASI FAKTOR EMISI LAHAN GAMBUT INDONESIA YANG DIDRAINASE UNTUK BUDIDAYA KELAPA SAWIT:
+Perhitungan Faktor Emisi Berdasarkan Beberapa Metode Pengukuran Emisi Karbon
+
+Development of the eddy covariance data post-processing
+Site: PT Persada Dinamika Lestari, South Kalimantan
