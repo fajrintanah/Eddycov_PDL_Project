@@ -6,5 +6,5 @@ Research Entitled:
 UJI MULTILOKASI FAKTOR EMISI LAHAN GAMBUT INDONESIA YANG DIDRAINASE UNTUK BUDIDAYA KELAPA SAWIT:
 Perhitungan Faktor Emisi Berdasarkan Beberapa Metode Pengukuran Emisi Karbon
 
-Development of the eddy covariance data post-processing
+Development of the eddy covariance data post-processing: On-going Development for publication-quality datasets
 Site: PT Persada Dinamika Lestari, South Kalimantan
