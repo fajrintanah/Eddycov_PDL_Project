@@ -27,9 +27,6 @@ library(scales)
 library(outliers)
 library(changepoint)
 
-# token read-only github Eddy_Cov_Dev:
-# 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
-
 
 # Manual analysis
 
