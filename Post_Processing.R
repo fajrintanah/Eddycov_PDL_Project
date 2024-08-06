@@ -227,16 +227,16 @@ str(R_eddy)
 
 		  
 ## handling date-time problem
-## the dataframe contains false time information in "date" column , while "time" column posessses false date information
+## The dataframe contains false time information in "date" column, while "time" column possesses false date information
 # manipulating column and datetime 
 
 eddy_test <- R_eddy %>%
-				mutate(
-						day = day(date),
-						month = month(date), 
-						year = year(date), # separate date to day, month, and year. Just for backup
-						Date = format(date, format = "%Y/%m/%d"), # remove false time in "date" column by creating other "Date" column
-						Time = format(time, format = "%H:%M:%S")) # remove false date in "time" column by creating other "Time" column
+			mutate(
+				day = day(date),
+				month = month(date), 
+				year = year(date), # separate date to day, month, and year. Just for backup
+				Date = format(date, format = "%Y/%m/%d"), # remove false time in "date" column by creating another "Date" column
+				Time = format(time, format = "%H:%M:%S")) # remove false date in "time" column by creating another "Time" column
 
 
 
@@ -250,66 +250,65 @@ write_xlsx(eddy_test, "D:/Licor7500/05082024/eddy_test.xlsx") # test if the proc
 # Quality Control and Cell Manipulation 
 
 ## replacing cell with N.A. if the flux' and H' qc flags above 1 (2, 3, ..) = indicating bad fluxes
-## also replacing cell with N.A. if the flux has negative values on nightime (daytime=0), no photosynthesis at night, resulting positive fluxes
+## also replacing cell with N.A. if the flux has negative values on nighttime (daytime=0), no photosynthesis at night, resulting positive fluxes
 ## also averaging soil temperature (TS) and soil water content (SWC) for NEE' gapfill inputs
 ## also convert TS unit (Kelvin) to Celcius
 
 eddy_testqc <- eddy_test %>% 
-				mutate(
-						co2_flux = ifelse(qc_co2_flux == 2, NA, co2_flux)) %>% # discard co2_flux if it have qc = 2									
-				mutate(
-						H = ifelse(qc_H == 2, NA, H)) %>% 	# discard H if it have qc = 2										
-				mutate(
-						LE = ifelse(qc_LE == 2, NA, H)) %>%  # discard LE if it have qc = 2		
-				mutate(
-						co2_flux = ifelse(daytime == 0 & co2_flux < 0, NA , co2_flux)) %>% # discard negative co2_flux on nighttime 	
-				mutate(
-						TS = rowMeans(cbind(TS_1_1_1, TS_2_1_1, TS_3_1_1), na.rm = TRUE))%>%  # average soil temperature
-				mutate(
-						TS = TS - 273.15) %>% 	# convert soil temperature to celcius				
-				mutate(
-						TA = air_temperature - 273.15) %>% 		# convert air temperature to celcius	
-				mutate(
-						SWC = rowMeans(select(.,starts_with("SWC")), na.rm = TRUE))%>% #change SWC_1_1_1 to SWC
-				mutate(
-						co2_flux2 = co2_flux * 0.00158436)%>%  # change the units from umol/m2,s to Mg/ha, hour
-				mutate(
-						PPFD_1_1_1 = ifelse(PPFD_1_1_1 < 0, 0, PPFD_1_1_1))%>% # set PPFD to zero if it contains negative value (no sunlight)
-				mutate(
-						PPFD_1_1_1 = ifelse(Time >= "19:00:00" & Time <= "04:00:00", 0, PPFD_1_1_1)) # set PPFD to zero at 19:00-04:00
+			mutate(
+				co2_flux = ifelse(qc_co2_flux == 2, NA, co2_flux)) %>% # discard co2_flux if it have qc = 2									
+			mutate(
+				H = ifelse(qc_H == 2, NA, H)) %>% # discard H if it have qc = 2									
+			mutate(
+				LE = ifelse(qc_LE == 2, NA, H)) %>%  # discard LE if it have qc = 2		
+			mutate(
+				co2_flux = ifelse(daytime == 0 & co2_flux < 0, NA , co2_flux)) %>% # discard negative co2_flux on nighttime 	
+			mutate(
+				TS = rowMeans(cbind(TS_1_1_1, TS_2_1_1, TS_3_1_1), na.rm = TRUE))%>%  # average soil temperature
+			mutate(
+				TS = TS - 273.15) %>% # convert soil temperature to celcius				
+			mutate(
+				TA = air_temperature - 273.15) %>% # convert air temperature to celcius	
+			mutate(
+				SWC = rowMeans(select(.,starts_with("SWC")), na.rm = TRUE))%>% # change SWC_1_1_1 to SWC
+			mutate(
+				co2_flux2 = co2_flux * 0.00158436)%>%  # change the units from umol/m2,s to Mg/ha, hour
+			mutate(
+				PPFD_1_1_1 = ifelse(PPFD_1_1_1 < 0, 0, PPFD_1_1_1))%>% # Set PPFD to zero if it contains a negative value (no sunlight)
+			mutate(
+				PPFD_1_1_1 = ifelse(Time >= "19:00:00" & Time <= "04:00:00", 0, PPFD_1_1_1)) # set PPFD to zero at 19:00-04:00
 									
 									
 write_xlsx(eddy_testqc, "D:/Licor7500/05082024/eddy_testqc.xlsx") # test if the process run well. Result = OK !! 
 
-# identify time gaps (consistency) by create correct datetime and binned it to the original flux data
+# identify time gaps (consistency) by creating correct datetime and binning it to the original flux data
 
 ## Generate correct and consistent half-hourly DateTime column
 
 half_hourly_dt <- seq(ymd_hms("2024-06-10 14:00:00"), ymd_hms("2024-08-02 12:30:00"), by = "30 min")
 half_hourly_df <- data.frame(Datetime = half_hourly_dt)
 
-## Bin  original dataframe to the half-hourly grid
+## Bin the original data frame to the half-hourly grid
 
 binned_eddy_testqc <- eddy_testqc %>% 
-							mutate(Datetime = floor_date(Datetime, "30 minutes")) %>% 
-							right_join(half_hourly_df, by = "Datetime") %>% 
-							group_by(Datetime) %>% 
-							summarise(across(everything(), ~ coalesce(mean(., na.rm = TRUE), NA)))%>% 
-							select(-c(day, month, year, Date, Time)) %>% #drop time-related columns containing gaps
-							mutate(
-									day = day(Datetime),
-									month = month(Datetime), 
-									year = year(Datetime),
-									Date = format(Datetime, format = "%Y/%m/%d"), 
-									Time = format(Datetime, format = "%H:%M:%S"))%>% #retaining all correct time-related columns
-							mutate(
-									daytime = ifelse(Time >= "06:00:00" & Time <= "17:30:00", 1, 0))   #fill the daytime gaps
+				mutate(Datetime = floor_date(Datetime, "30 minutes")) %>% 
+				right_join(half_hourly_df, by = "Datetime") %>% 
+				group_by(Datetime) %>% 
+				summarise(across(everything(), ~ coalesce(mean(., na.rm = TRUE), NA)))%>% 
+				select(-c(day, month, year, Date, Time)) %>% #drop time-related columns containing gaps
+				mutate(
+					day = day(Datetime),
+					month = month(Datetime), 
+					year = year(Datetime),
+					Date = format(Datetime, format = "%Y/%m/%d"), 
+					Time = format(Datetime, format = "%H:%M:%S"))%>% #retaining all correct time-related columns
+				mutate(
+					daytime = ifelse(Time >= "06:00:00" & Time <= "17:30:00", 1, 0))   #fill the daytime gaps
 				
 write_xlsx(binned_eddy_testqc, "D:/Licor7500/05082024/binned_eddy_testqc.xlsx") # test if the process run well. Result = OK !!
 
-# de-spiking/extreme outlier elimination based on the averaged moving window (=MDV) of 14 day. 
+# de-spiking/extreme outlier elimination based on the averaged moving window (=MDV) of 14 days. 
 ## value is bad if it beyond 1.5*SD (Modified from Papale = 3*SD)
-
 
 eddy_testqc2 <-  binned_eddy_testqc %>%
   arrange(Datetime) %>%
