@@ -26,7 +26,7 @@ library(viridis)
 library(scales)
 library(outliers)
 library(changepoint)
-
+library(FNN)
 
 # Manual analysis
 
@@ -363,6 +363,73 @@ data_fd <- data_weighted %>%
   summarise(dcdt = mean(dc / dt))
   
 ## not yet due to Li8100 and Li8150 failures!!!!!!
+
+
+# CO2 removal on night time based the U* (Ustar) or friction velocity 
+## the method is modified from change point detection implemented by Hirano et al. 2024  https://doi.org/10.1038/s43247-024-01387-7
+
+## Calculate quartiles for TA
+quartiles <- quantile(eddy_testqc2$TA[eddy_testqc2$daytime == 0], 
+                      probs = c(0, 0.25, 0.5, 0.75, 1), na.rm = TRUE)
+
+# Create TA_quartile column
+eddy_testqc3 <- eddy_testqc2 %>%
+  mutate(
+    TA_quartile = case_when(
+      daytime == 0 ~ cut(TA, breaks = quartiles, 
+                         include.lowest = TRUE, 
+                         labels = 1:4),
+      TRUE ~ NA
+    )
+  )
+
+write_xlsx(eddy_testqc3, "D:/Licor7500/03092024/eddy_testqc3.xlsx") # test if the process run well. Result = OK !! 
+
+# Create ustar_binned column and calculate changepoints
+# Calculate max_ustar (=max changepoint on each quartile) and annual_threshold (=mean(max_ustar(Q1:Q4)))
+
+thresholds <- eddy_testqc3 %>%
+  filter(!is.na(TA_quartile)) %>%  # select only non-NA rows of TA_quartile
+  group_by(TA_quartile) %>%
+  mutate(
+    ustar_binned = cut(ustar, breaks = quantile(ustar, probs = seq(0, 1, by = 0.05), na.rm = TRUE), 
+                        include.lowest = TRUE, labels = 1:20)
+  ) %>%
+  group_by(TA_quartile, ustar_binned) %>%
+  mutate(
+    changepoints = cpt.mean(ustar, method = "PELT")@cpts,  # extract the cpts slot from the S4 object
+    max_chgpoint_idx = which.max(changepoints),  # get the index of the max changepoint
+    max_chgpoint_ustar = ustar[ max_chgpoint_idx ]  # extract the ustar value at the max changepoint
+  ) %>%
+  group_by(TA_quartile) %>%
+  summarise(
+    max_ustar = max(max_chgpoint_ustar)  # extract the maximum ustar in each quarter
+  )
+
+write_xlsx(thresholds, "D:/Licor7500/03092024/thresholds.xlsx") # test if the process run well. Result = OK !! 
+
+# Calculate annual_threshold
+annual_threshold <- thresholds %>%
+  pull(max_ustar) %>%  # extract the max_ustar values
+  mean(na.rm = TRUE)  # calculate the mean of the max_ustar values
+
+# Add the annual_threshold to the original data
+eddy_testqc4 <- eddy_testqc3 %>%
+  mutate(
+    flags_ustar = case_when(
+      daytime == 0 & ustar < annual_threshold ~ 0,  # bad
+      daytime == 0 & ustar >= annual_threshold ~ 1,  # good
+      daytime == 1 ~ NA_integer_  # NA when daytime == 1
+    )
+  ) %>%
+  mutate(
+    co2_flux2 = ifelse(daytime == 0 & flags_ustar == 0, NA_real_, co2_flux2) # set co2_flux2 to NA when flags_ustar == 0 and daytime == 0
+  ) %>%
+  arrange(Datetime)
+
+write_xlsx(eddy_testqc4, "D:/Licor7500/03092024/eddy_testqc4.xlsx") # test if the process run well. Result = OK !! 
+ 
+
 
 
 # select cell for computing gap filling
