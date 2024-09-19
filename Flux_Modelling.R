@@ -125,7 +125,7 @@ str(model_EC_df)
 		 $ Status: chr [1:1667] "Trainingmodel_EC" "Trainingmodel_EC" "Trainingmodel_EC" "Trainingmodel_EC" ...
 		 
 	 
-# convert dataframe tiblles to maxtrix for convenience usage for XGBoost
+# convert dataframe tibbles to maxtrix for convenience usage for XGBoost
 
 x_model_EC_train = subset(trainSet_model_EC, select = -NEE) %>% as.matrix() 
 y_model_EC_train = trainSet_model_EC$NEE
@@ -235,9 +235,84 @@ EC_Cub_final <- train(
   trControl = trainControl(method = "repeatedcv", number = 10, repeats=10)
   )
 
+## ------------ Random Forest -------------------------------
+
+### grid search within optimum range of ranger RF parameterization   
+
+hyper_grid_RF_EC <- expand.grid(
+  mtry       = seq(2, 6, by = 1),
+  node_size  = seq(20, 30, by = 1),
+  num.trees	 = seq(100, 1000, by = 100),
+  OOB_RMSE   = 0
+)
+
+for(i in 1:nrow(hyper_grid_RF_EC)) {
+  
+  # train model
+  model_rf_EC <- ranger(
+  x = x_model_EC_train,
+  y = y_model_EC_train,
+    num.trees       = hyper_grid_RF_EC$num.trees[i],
+    mtry            = hyper_grid_RF_EC$mtry[i],
+    min.node.size   = hyper_grid_RF_EC$node_size[i],
+    seed            = 42
+  )
+  
+  # add OOB error to grid
+  hyper_grid_RF_EC$OOB_RMSE[i] <- sqrt(model_rf_EC$prediction.error)
+}
+
+hyper_grid_RF_EC %>% 
+  dplyr::arrange(OOB_RMSE) %>%  
+  arrange(OOB_RMSE) %>%
+		  top_n(-10, wt = OOB_RMSE)
+		   mtry node_size num.trees   OOB_RMSE
+		1     4        20       200 0.01100671
+		2     4        21       200 0.01101491
+		3     4        22       200 0.01101681
+		4     4        20       300 0.01102338
+		5     4        20       400 0.01102638
+		6     4        23       200 0.01103351
+		7     2        24       100 0.01103355
+		8     4        21       100 0.01103584
+		9     2        25       100 0.01104075
+		10    4        25       200 0.01104250
+
+### apply aforementioned ranger's tuning parameterisation to the caret
+				
+tunegrid_EC2 <- expand.grid(.mtry = 4) 
+
+set.seed(123)
+RF_EC2 <- train(
+  x = x_model_EC_train,
+  y = y_model_EC_train,
+                   method = 'rf',
+                   metric = 'RMSE',
+                   tuneGrid = tunegrid_EC2, 
+				   nodesize = 20,
+					ntree = 200,
+                   trControl = trainControl(method = "repeatedcv", number = 10, repeats=10))
+
+print(RF_EC2) 
+		Random Forest 
+
+		1166 samples
+		   6 predictor
+
+		No pre-processing
+		Resampling: Cross-Validated (10 fold, repeated 10 times) 
+		Summary of sample sizes: 1048, 1049, 1050, 1050, 1050, 1048, ... 
+		Resampling results:
+
+		  RMSE        Rsquared   MAE        
+		  0.01093331  0.6035576  0.007176801
+
+		Tuning parameter 'mtry' was held constant at a value of 4
 
 
-## extreeme gradient boosting
+
+
+## extreeme gradient boosting ---------------------
 
 # First step: Fixing nround, learning rate (eta), max tree depth
 xgb_trc_EC = trainControl(
