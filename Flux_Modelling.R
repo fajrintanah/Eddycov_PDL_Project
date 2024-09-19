@@ -278,9 +278,9 @@ hyper_grid_RF_EC %>%
 		9     2        25       100 0.01104075
 		10    4        25       200 0.01104250
 
-### apply aforementioned ranger's tuning parameterisation to the caret
+### apply aforementioned ranger's tuning parameterisation to the caret				
 				
-tunegrid_EC2 <- expand.grid(.mtry = 4) 
+tunegrid_EC2 <- expand.grid(.mtry = 2) 
 
 set.seed(123)
 RF_EC2 <- train(
@@ -289,9 +289,11 @@ RF_EC2 <- train(
                    method = 'rf',
                    metric = 'RMSE',
                    tuneGrid = tunegrid_EC2, 
-				   nodesize = 20,
-					ntree = 200,
+				   nodesize = 9, 
+					ntree = 300,
                    trControl = trainControl(method = "repeatedcv", number = 10, repeats=10))
+
+print(RF_EC2) 
 
 print(RF_EC2) 
 		Random Forest 
@@ -308,7 +310,6 @@ print(RF_EC2)
 		  0.01093331  0.6035576  0.007176801
 
 		Tuning parameter 'mtry' was held constant at a value of 4
-
 
 
 
@@ -483,6 +484,123 @@ xgb_EC_final
 		Tuning parameter 'subsample'
 		 was held constant at a value of 1
 
+
+
+#----------------------- Model Comparison -----------------------------------------
+
+# performance by calibration method (internally by 10-fold 10-repeated cross validation)
+
+models_compare_EC <- resamples(
+					list(LM=tuned_lm_NEE, Cubist=EC_Cub_final, RF=RF_EC2, XGB = xgb_EC_final))
+
+# Summary of the models performances
+summary(models_compare_EC)
+		Call:
+		summary.resamples(object = models_compare_EC)
+
+		Models: LM, Cubist, RF, XGB 
+		Number of resamples: 100 
+
+		MAE 
+					  Min.     1st Qu.      Median        Mean     3rd Qu.        Max. NAs
+		LM     0.007269762 0.008455541 0.008971405 0.008990819 0.009593620 0.010571964    0
+		Cubist 0.005879114 0.006859827 0.007382750 0.007345604 0.007754825 0.008868782    0
+		RF     0.005432322 0.006504935 0.007080026 0.007136209 0.007683395 0.008969646    0
+		XGB    0.006365525 0.007037469 0.007557361 0.007500258 0.007908539 0.009452894    0
+
+		RMSE 
+					  Min.     1st Qu.     Median       Mean    3rd Qu.       Max. NAs
+		LM     0.009355449 0.011283649 0.01245017 0.01267903 0.01358103 0.01746078    0
+		Cubist 0.007839488 0.009735532 0.01063987 0.01123079 0.01233128 0.01725717    0
+		RF     0.007165236 0.009410019 0.01046337 0.01085813 0.01191860 0.01780311    0
+		XGB    0.008313716 0.009773360 0.01069332 0.01123113 0.01218960 0.01729187    0
+
+		Rsquared 
+					Min.   1st Qu.    Median      Mean   3rd Qu.      Max. NAs
+		LM     0.2146167 0.4339676 0.4778557 0.4664180 0.5153245 0.6255812    0
+		Cubist 0.2730694 0.5430216 0.6128930 0.5835988 0.6608320 0.7494460    0
+		RF     0.2544257 0.5726366 0.6335726 0.6089640 0.6740359 0.7845321    0
+		XGB    0.2958941 0.5432307 0.6085678 0.5831406 0.6506312 0.7434002    0
+
+
+scales <- list(x=list(relation="free"), y=list(relation="free"))
+bwplot(models_compare_EC, scales=scales)
+
+ggplot(models_compare_EC, scales=scales)
+
+models_compare_EC$values %>% #extract the values
+  select(1, ends_with("RMSE")) %>% #select the first column and all columns with a name ending with "RMSE"
+  gather(model, RMSE, -1) %>% #convert to long table
+  mutate(model = sub("~RMSE", "", model)) %>% #leave just the model names
+  ggplot()+ #call ggplot
+  geom_boxplot(aes(x = RMSE, y = model, fill=model)) -> p1_EC #and plot the box plot
+
+plot1_EC <- p1_EC + scale_y_discrete(limits = c("LM", "Cubist", "RF", "XGB"))+
+    scale_fill_viridis(discrete = TRUE) + theme_bw() + ggtitle("EC") +
+	theme(legend.position="none", axis.title.y = element_blank())	
+
+
+models_compare_EC$values %>% #extract the values
+  select(1, ends_with("MAE")) %>% #select the first column and all columns with a name ending with "MAE"
+  gather(model, MAE, -1) %>% #convert to long table
+  mutate(model = sub("~MAE", "", model)) %>% #leave just the model names
+  ggplot()+ #call ggplot
+  geom_boxplot(aes(x = MAE, y = model, fill=model)) -> p2_EC #and plot the box plot
+
+plot2_EC <- p2_EC + scale_y_discrete(limits = c("LM", "Cubist", "RF", "XGB"))+
+    scale_fill_viridis(discrete = TRUE) + theme_bw() + 
+	theme(legend.position="none", axis.title.y = element_blank())	
+
+
+models_compare_EC$values %>% #extract the values
+  select(1, ends_with("Rsquared")) %>% #select the first column and all columns with a name ending with "Rsquared"
+  gather(model, Rsquared, -1) %>% #convert to long table
+  mutate(model = sub("~Rsquared", "", model)) %>% #leave just the model names
+  ggplot()+ #call ggplot
+  geom_boxplot(aes(x = Rsquared, y = model, fill=model)) -> p3_EC #and plot the box plot
+
+plot3_EC <- p3_EC + scale_y_discrete(limits = c("LM", "Cubist", "RF", "XGB"))+
+    scale_fill_viridis(discrete = TRUE)  + theme_bw() +  
+	theme(legend.position="none", axis.title.y = element_blank())	
+
+plot1_EC+plot2_EC+plot3_EC	
+ 
+# performance by validation method (externally by the 30% validation data)
+	
+preds_MLR_EC <- predict(tuned_lm_NEE, testSet_model_EC)
+preds_CUBIST_EC  <- predict(EC_Cub_final, testSet_model_EC)
+preds_RF_EC  <- predict(RF_EC2, testSet_model_EC)
+preds_XGB_EC  <- predict(xgb_EC_final, as.matrix(x_model_EC_test))
+
+MLR_df_EC <- data.frame(	Rsq = R2(preds_MLR_EC, y_model_EC_test),  
+						RMSE = RMSE(preds_MLR_EC, y_model_EC_test),  
+						MAE = MAE(preds_MLR_EC, y_model_EC_test),
+						BIAS = Metrics::bias(y_model_EC_test, preds_MLR_EC)) %>% add_column(Model="MLR")
+
+CUBIST_df_EC <- data.frame(	Rsq = R2(preds_CUBIST_EC, y_model_EC_test),  
+						RMSE = RMSE(preds_CUBIST_EC, y_model_EC_test),  
+						MAE = MAE(preds_CUBIST_EC, y_model_EC_test),
+						BIAS = Metrics::bias(y_model_EC_test, preds_CUBIST_EC))%>% add_column(Model="CUBIST")
+
+RF_df_EC <- data.frame(	Rsq = R2(preds_RF_EC, y_model_EC_test),  
+						RMSE = RMSE(preds_RF_EC, y_model_EC_test),  
+						MAE = MAE(preds_RF_EC, y_model_EC_test),
+						BIAS = Metrics::bias(y_model_EC_test, preds_RF_EC))%>% add_column(Model="RF")
+						
+XGB_df_EC <- data.frame(	Rsq = R2(preds_XGB_EC, y_model_EC_test),  
+						RMSE = RMSE(preds_XGB_EC, y_model_EC_test),  
+						MAE = MAE(preds_XGB_EC, y_model_EC_test),
+						BIAS = Metrics::bias(y_model_EC_test, preds_XGB_EC))%>% add_column(Model="XGB")					
+
+
+merged_all_model_EC <- bind_rows(MLR_df_EC, CUBIST_df_EC,  RF_df_EC,  XGB_df_EC)
+
+merged_all_model_EC 
+				Rsq       RMSE         MAE          BIAS  Model
+		1 0.5084478 0.01236747 0.009200077  8.317547e-05    MLR
+		2 0.6646155 0.01040592 0.007087060  1.007158e-03 CUBIST
+		3 0.6654626 0.01021949 0.006744885  2.193985e-04     RF
+		4 0.6362682 0.01063193 0.007319954 -2.209354e-04    XGB
 
 
 
