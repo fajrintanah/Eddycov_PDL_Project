@@ -269,6 +269,8 @@ data_fd <- data_weighted %>%
 save.image("E:/Fajrin/Licor7500/25022025/olaheddycov25022025.RData") # save the workspace for backup
 
 
+load("E:/Fajrin/Licor7500/25022025/olaheddycov25022025.RData") # save the workspace for backup
+
 # CO2 removal on night time based the U* (Ustar) or friction velocity 
 ## the method is modified from change point detection implemented by Hirano et al. 2024  https://doi.org/10.1038/s43247-024-01387-7
 
@@ -313,6 +315,10 @@ thresholds <- eddy_testqc3 %>%
 
 write_xlsx(thresholds, "E:/Fajrin/Licor7500/25022025/thresholds.xlsx") # test if the process run well. Result = OK !! 
 
+
+save.image("E:/Fajrin/Licor7500/25022025/olaheddycov25022025.RData") # save the workspace for backup
+
+
 # Calculate annual_threshold
 annual_threshold <- thresholds %>%
   pull(max_ustar) %>%  # extract the max_ustar values
@@ -334,6 +340,8 @@ eddy_testqc4 <- eddy_testqc3 %>%
 
 write_xlsx(eddy_testqc4, "E:/Fajrin/Licor7500/25022025/eddy_testqc4.xlsx") # test if the process run well. Result = OK !! 
 
+
+save.image("E:/Fajrin/Licor7500/25022025/olaheddycov25022025.RData") # save the workspace for backup
 
 # Fill nighttime CO2 flux using look up table
 
@@ -368,6 +376,8 @@ eddy_testqc5 <- fill_co2_flux2(eddy_testqc4, lookup_table)
 
 write_xlsx(eddy_testqc5, "E:/Fajrin/Licor7500/25022025/eddy_testqc5.xlsx") # test if the process run well. Result = OK !! 
 
+
+save.image("E:/Fajrin/Licor7500/25022025/olaheddycov25022025.RData") # save the workspace for backup
 
 ## select cell for computing daytime gap filling
 
@@ -410,6 +420,9 @@ EFgp_NEE_mdv <- gp_NEE  %>%
   ungroup()
   
 
+save.image("E:/Fajrin/Licor7500/25022025/olaheddycov25022025.RData") # save the workspace for backup
+
+
 ## more sophisticated approach: combining 2-day, 4-day and 7-day centered rolling window MDV. (4, 8, & 14 days total)
 ## lowest variance' input is selected
 
@@ -447,6 +460,4 @@ write_xlsx(EFgp_mdv, "E:/Fajrin/Licor7500/25022025/EFgp_mdv.xlsx") # test if the
 
 save.image("E:/Fajrin/Licor7500/25022025/olaheddycov25022025.RData") # save the workspace for backup
 
-
-
-
+str(EFgp_mdv)
